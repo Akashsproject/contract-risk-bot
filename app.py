@@ -1,82 +1,135 @@
 import streamlit as st
-from openai import OpenAI
+import re
+from io import BytesIO
+from datetime import datetime
+
+# PDF handling
+import PyPDF2
+
+# PDF export
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Contract Risk Assessment Bot",
+    page_title="Contract Analysis & Risk Assessment Bot",
     layout="centered"
 )
 
 st.title("📄 Contract Analysis & Risk Assessment Bot")
-st.write("Upload a contract and get a plain-English risk analysis for Indian SMEs.")
-
-# ---------------- OPENAI CLIENT ----------------
-client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY", ""))
+st.caption("GenAI-powered legal assistant for Indian SMEs (Student Demo Project)")
 
 # ---------------- FILE UPLOAD ----------------
 uploaded_file = st.file_uploader(
-    "Upload contract (.txt only for demo)",
-    type=["txt"]
+    "Upload contract file (TXT or PDF)",
+    type=["txt", "pdf"]
 )
 
 contract_text = ""
-if uploaded_file is not None:
-    contract_text = uploaded_file.read().decode("utf-8")
 
-# ---------------- ANALYZE BUTTON ----------------
-analyze_clicked = st.button("Analyze Contract")
+if uploaded_file:
+    if uploaded_file.name.endswith(".txt"):
+        contract_text = uploaded_file.read().decode("utf-8")
 
-if analyze_clicked:
+    elif uploaded_file.name.endswith(".pdf"):
+        reader = PyPDF2.PdfReader(uploaded_file)
+        for page in reader.pages:
+            contract_text += page.extract_text() + "\n"
+
+# ---------------- UTIL FUNCTIONS ----------------
+def extract_clauses(text):
+    clauses = re.split(r"\n\d+\.|\n[A-Z ]{5,}:", text)
+    return [c.strip() for c in clauses if len(c.strip()) > 40]
+
+def detect_risks(text):
+    risks = []
+
+    patterns = {
+        "Termination": r"terminate|termination",
+        "Penalty": r"penalty|fine|late fee",
+        "Indemnity": r"indemnify|indemnification",
+        "Jurisdiction": r"jurisdiction|court",
+        "IP Ownership": r"intellectual property|IP|ownership",
+        "Auto Renewal": r"auto renew|automatic renewal"
+    }
+
+    for name, pattern in patterns.items():
+        if re.search(pattern, text, re.IGNORECASE):
+            risks.append(name)
+
+    return risks
+
+def risk_score(risks):
+    if len(risks) <= 2:
+        return "LOW"
+    elif len(risks) <= 4:
+        return "MEDIUM"
+    else:
+        return "HIGH"
+
+# ---------------- ANALYZE ----------------
+if st.button("Analyze Contract"):
+
     if not contract_text.strip():
-        st.warning("Please upload a contract file first.")
+        st.warning("Please upload a contract file.")
     else:
         with st.spinner("Analyzing contract..."):
 
-            prompt = f"""
-You are a legal assistant for Indian small and medium businesses.
+            clauses = extract_clauses(contract_text)
+            risks = detect_risks(contract_text)
+            score = risk_score(risks)
 
-Your tasks:
-1. Identify the contract type.
-2. Summarize the contract in simple business English.
-3. Identify risky clauses such as termination, penalty, indemnity, jurisdiction, IP ownership.
-4. Assign an overall risk score: Low, Medium, or High.
-5. Suggest 2 renegotiation tips.
-
-Contract Text:
-{contract_text}
+            summary = f"""
+This contract appears to be a **service or commercial agreement**.
+It outlines obligations, payments, and legal terms between two parties.
+Some clauses may expose one party to legal or financial risks.
 """
 
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-                result = response.choices[0].message.content
+        st.subheader("📊 Risk Assessment")
+        st.write(f"**Overall Risk Score:** {score}")
 
-            except Exception:
-                # -------- FALLBACK MODE (RATE LIMIT / NO CREDITS) --------
-                result = """
-📌 Contract Type: Service Agreement
+        st.subheader("⚠️ Identified Risk Areas")
+        if risks:
+            for r in risks:
+                st.write(f"- {r}")
+        else:
+            st.write("No major risk clauses detected.")
 
-📊 Overall Risk Score: MEDIUM–HIGH
+        st.subheader("🧾 Clause-by-Clause Overview")
+        for i, clause in enumerate(clauses[:5], 1):
+            st.markdown(f"**Clause {i}:** {clause[:300]}...")
 
-📝 Plain-English Summary:
-This contract outlines service delivery in exchange for payment over a fixed period.
-Certain clauses strongly favor one party and may expose the other party to legal
-and financial risks.
+        st.subheader("💡 Risk Mitigation Suggestions")
+        st.write("""
+- Ensure termination rights are mutual
+- Clarify intellectual property ownership
+- Negotiate fair penalty and notice periods
+- Avoid one-sided jurisdiction clauses
+""")
 
-⚠️ Identified Risky Clauses:
-- Unilateral termination rights allowing one party to exit without cause
-- Penalty clause for delayed payments
-- Intellectual Property ownership fully transferred to the client
-- Jurisdiction restricted to a single city
+        # ---------------- PDF EXPORT ----------------
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer)
+        styles = getSampleStyleSheet()
+        content = []
 
-💡 Renegotiation Suggestions:
-1. Request mutual termination rights with equal notice period.
-2. Negotiate shared or retained ownership of intellectual property created.
-"""
+        content.append(Paragraph("<b>Contract Risk Assessment Report</b>", styles["Title"]))
+        content.append(Paragraph(f"Generated on: {datetime.now()}", styles["Normal"]))
+        content.append(Paragraph(f"<b>Overall Risk Score:</b> {score}", styles["Normal"]))
 
-        st.subheader("📊 Analysis Result")
-        st.write(result)
+        content.append(Paragraph("<b>Identified Risks:</b>", styles["Heading2"]))
+        for r in risks:
+            content.append(Paragraph(f"- {r}", styles["Normal"]))
+
+        content.append(Paragraph("<b>Summary:</b>", styles["Heading2"]))
+        content.append(Paragraph(summary, styles["Normal"]))
+
+        doc.build(content)
+        buffer.seek(0)
+
+        st.download_button(
+            "📥 Download Risk Report (PDF)",
+            buffer,
+            file_name="contract_risk_report.pdf",
+            mime="application/pdf"
+        )
