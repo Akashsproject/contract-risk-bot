@@ -20,10 +20,14 @@ if uploaded_file:
     contract_text = uploaded_file.read().decode("utf-8")
 
 # ---------------- ANALYZE BUTTON ----------------
-if st.button("Analyze Contract") and contract_text:
+analyze_clicked = st.button("Analyze Contract")
 
-    with st.spinner("Analyzing contract..."):
-        prompt = f"""
+if analyze_clicked:
+    if not contract_text:
+        st.warning("Please upload a contract file first.")
+    else:
+        with st.spinner("Analyzing contract..."):
+            prompt = f"""
 You are a legal assistant for Indian small businesses.
 
 Tasks:
@@ -37,15 +41,12 @@ Contract Text:
 {contract_text}
 """
 
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}]
-        )
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": prompt}]
+            )
 
-        result = response.choices[0].message.content
+            result = response.choices[0].message.content
 
-    st.subheader("📊 Analysis Result")
-    st.write(result)
-
-elif st.button("Analyze Contract"):
-    st.warning("Please upload a contract file first.")
+        st.subheader("📊 Analysis Result")
+        st.write(result)
