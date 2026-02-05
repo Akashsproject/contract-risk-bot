@@ -13,58 +13,103 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
 body {
-    background-color: #f5f7fb;
+    background: linear-gradient(180deg, #f4f7fc 0%, #eef2f9 100%);
 }
+
 .main {
-    padding: 2rem;
+    padding: 2.5rem;
 }
+
 h1 {
-    color: #1f2a44;
+    color: #0f1f3d;
     font-weight: 700;
 }
-h2, h3 {
-    color: #243a5e;
+
+.subtitle {
+    font-size: 16px;
+    color: #42526e;
+    margin-bottom: 2rem;
 }
+
 .card {
-    background-color: #ffffff;
-    padding: 1.5rem;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    padding: 1.6rem;
+    border-radius: 16px;
+    box-shadow: 0 10px 28px rgba(15, 31, 61, 0.08);
+    transition: all 0.3s ease;
+    margin-bottom: 1.6rem;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 40px rgba(15, 31, 61, 0.12);
+}
+
+.badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.low {
+    background-color: #e6f6ef;
+    color: #127a53;
+}
+
+.medium {
+    background-color: #fff4e5;
+    color: #b26a00;
+}
+
+.high {
+    background-color: #fdecea;
+    color: #b42318;
+}
+
+.action-btn button {
+    background: linear-gradient(90deg, #1f4fd8, #3b82f6);
+    color: white;
+    font-weight: 600;
     border-radius: 12px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-    margin-bottom: 1.5rem;
+    padding: 0.6rem 1.2rem;
+    border: none;
 }
-.risk-low {
-    color: #1b7f5a;
-    font-weight: 700;
+
+.action-btn button:hover {
+    background: linear-gradient(90deg, #1a3fb8, #2563eb);
 }
-.risk-medium {
-    color: #c47f00;
-    font-weight: 700;
+
+ul {
+    padding-left: 1.2rem;
 }
-.risk-high {
-    color: #c0392b;
-    font-weight: 700;
-}
+
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("<h1>Contract Risk Intelligence Platform</h1>", unsafe_allow_html=True)
 st.markdown(
-    "<p style='font-size:16px;color:#4a5d7a;'>"
-    "AI-assisted contract analysis to help businesses understand legal exposure, obligations, and risk areas."
-    "</p>",
+    "<div class='subtitle'>AI-assisted legal risk analysis for smarter contract decisions</div>",
     unsafe_allow_html=True
 )
 
 uploaded_file = st.file_uploader(
-    "Upload Contract Document (TXT or PDF)",
+    "Upload Contract Document",
     type=["txt", "pdf"]
 )
 
 contract_text = ""
 
 if uploaded_file:
-    if uploaded_file.name.lower().endswith(".txt"):
+    if uploaded_file.name.endswith(".txt"):
         contract_text = uploaded_file.read().decode("utf-8")
     else:
         reader = PyPDF2.PdfReader(uploaded_file)
@@ -72,60 +117,49 @@ if uploaded_file:
             contract_text += page.extract_text() + "\n"
 
 def extract_clauses(text):
-    raw = re.split(r"\n\d+\.|\n[A-Z ]{4,}:", text)
-    return [c.strip() for c in raw if len(c.strip()) > 50]
+    blocks = re.split(r"\n\d+\.|\n[A-Z ]{4,}:", text)
+    return [b.strip() for b in blocks if len(b.strip()) > 60]
 
 def detect_risks(text):
-    mapping = {
-        "Termination Rights": r"terminate|termination",
-        "Penalty / Late Fees": r"penalty|fine|late fee",
-        "Indemnity Obligations": r"indemnify|indemnification",
-        "Jurisdiction Clause": r"jurisdiction|court",
-        "Intellectual Property Transfer": r"intellectual property|IP|ownership",
-        "Auto Renewal Clause": r"auto renew|automatic renewal"
+    rules = {
+        "Termination Conditions": r"terminate|termination",
+        "Financial Penalties": r"penalty|fine|late fee",
+        "Indemnification Clause": r"indemnify|indemnification",
+        "Jurisdiction Restriction": r"jurisdiction|court",
+        "Intellectual Property Rights": r"intellectual property|IP|ownership",
+        "Automatic Renewal": r"auto renew|automatic renewal"
     }
-    found = []
-    for name, pattern in mapping.items():
-        if re.search(pattern, text, re.IGNORECASE):
-            found.append(name)
-    return found
+    return [name for name, pattern in rules.items() if re.search(pattern, text, re.I)]
 
-def calculate_risk_level(count):
-    if count <= 2:
-        return "LOW"
-    if count <= 4:
-        return "MEDIUM"
-    return "HIGH"
+def risk_level(score):
+    if score <= 2:
+        return "LOW", "low"
+    if score <= 4:
+        return "MEDIUM", "medium"
+    return "HIGH", "high"
 
-if st.button("Run Contract Analysis", use_container_width=True):
+if st.button("Analyze Contract", use_container_width=True):
 
     if not contract_text.strip():
-        st.warning("Please upload a valid contract document to proceed.")
+        st.warning("Please upload a valid contract document.")
     else:
         clauses = extract_clauses(contract_text)
         risks = detect_risks(contract_text)
-        level = calculate_risk_level(len(risks))
+        level_text, level_class = risk_level(len(risks))
 
-        if level == "LOW":
-            risk_class = "risk-low"
-        elif level == "MEDIUM":
-            risk_class = "risk-medium"
-        else:
-            risk_class = "risk-high"
-
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns([1, 1])
 
         with col1:
             st.markdown("<div class='card'>", unsafe_allow_html=True)
-            st.markdown("<h3>Overall Risk Assessment</h3>", unsafe_allow_html=True)
+            st.markdown("<h3>Overall Risk Status</h3>", unsafe_allow_html=True)
             st.markdown(
-                f"<p class='{risk_class}'>Risk Level: {level}</p>",
+                f"<span class='badge {level_class}'>{level_text} RISK</span>",
                 unsafe_allow_html=True
             )
             st.markdown(
-                "<p>"
-                "The contract has been evaluated based on common legal risk indicators. "
-                "Identified clauses may require review or renegotiation to reduce exposure."
+                "<p style='margin-top:12px;color:#42526e;'>"
+                "Risk score is derived from contractual obligations, penalties, "
+                "termination clauses, and jurisdictional exposure."
                 "</p>",
                 unsafe_allow_html=True
             )
@@ -133,55 +167,47 @@ if st.button("Run Contract Analysis", use_container_width=True):
 
         with col2:
             st.markdown("<div class='card'>", unsafe_allow_html=True)
-            st.markdown("<h3>Detected Risk Areas</h3>", unsafe_allow_html=True)
+            st.markdown("<h3>Key Risk Indicators</h3>", unsafe_allow_html=True)
             if risks:
                 for r in risks:
-                    st.markdown(f"- {r}")
+                    st.markdown(f"• {r}")
             else:
-                st.markdown("No significant risk indicators detected.")
+                st.markdown("No significant contractual risks detected.")
             st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.markdown("<h3>Clause Overview</h3>", unsafe_allow_html=True)
-        for i, clause in enumerate(clauses[:6], 1):
-            st.markdown(f"**Clause {i}:** {clause[:400]}...")
+        st.markdown("<h3>Clause Highlights</h3>", unsafe_allow_html=True)
+        for i, c in enumerate(clauses[:5], 1):
+            st.markdown(f"**Clause {i}** — {c[:350]}...")
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.markdown("<h3>Recommended Risk Mitigation</h3>", unsafe_allow_html=True)
+        st.markdown("<h3>Suggested Improvements</h3>", unsafe_allow_html=True)
         st.markdown("""
-- Ensure termination rights are balanced for both parties  
-- Clarify ownership and usage rights of intellectual property  
-- Review penalty clauses for proportionality  
-- Avoid restrictive jurisdiction unless necessary  
+- Balance termination rights between parties  
+- Limit financial penalties to reasonable thresholds  
+- Clearly define IP ownership and usage rights  
+- Avoid restrictive jurisdiction unless legally required  
 """)
         st.markdown("</div>", unsafe_allow_html=True)
 
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer)
         styles = getSampleStyleSheet()
-        content = []
+        story = []
 
-        content.append(Paragraph("<b>Contract Risk Assessment Report</b>", styles["Title"]))
-        content.append(Paragraph(f"Generated on: {datetime.now()}", styles["Normal"]))
-        content.append(Paragraph(f"<b>Overall Risk Level:</b> {level}", styles["Normal"]))
+        story.append(Paragraph("Contract Risk Assessment Report", styles["Title"]))
+        story.append(Paragraph(f"Generated on {datetime.now()}", styles["Normal"]))
+        story.append(Paragraph(f"Overall Risk Level: {level_text}", styles["Heading2"]))
 
-        content.append(Paragraph("<b>Identified Risk Areas</b>", styles["Heading2"]))
         for r in risks:
-            content.append(Paragraph(r, styles["Normal"]))
+            story.append(Paragraph(r, styles["Normal"]))
 
-        content.append(Paragraph("<b>Summary</b>", styles["Heading2"]))
-        content.append(Paragraph(
-            "This report highlights contractual clauses that may expose the parties "
-            "to legal or financial risks and should be reviewed carefully.",
-            styles["Normal"]
-        ))
-
-        doc.build(content)
+        doc.build(story)
         buffer.seek(0)
 
         st.download_button(
-            "Download Professional Risk Report (PDF)",
+            "Download Executive PDF Report",
             buffer,
             file_name="contract_risk_report.pdf",
             mime="application/pdf"
