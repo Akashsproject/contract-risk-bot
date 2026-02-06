@@ -13,13 +13,11 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-
 :root {
     --primary: #1f2a44;
     --secondary: #2f80ed;
     --accent: #00b4d8;
     --bg: #f4f7fb;
-    --card: #ffffff;
     --low: #1e7f5a;
     --medium: #d68910;
     --high: #c0392b;
@@ -39,7 +37,7 @@ html, body, [class*="css"] {
 }
 
 .header h1 {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
 }
 
 .header p {
@@ -47,18 +45,19 @@ html, body, [class*="css"] {
     font-size: 16px;
 }
 
-.card {
-    background-color: var(--card);
-    padding: 1.8rem;
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    margin-bottom: 1.5rem;
+.section {
+    padding: 0.8rem 0;
 }
 
-.card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 14px 35px rgba(0,0,0,0.12);
+.divider {
+    height: 1px;
+    background: linear-gradient(
+        to right,
+        rgba(47,128,237,0.15),
+        rgba(47,128,237,0.6),
+        rgba(47,128,237,0.15)
+    );
+    margin: 1.8rem 0;
 }
 
 .risk-low {
@@ -79,13 +78,6 @@ html, body, [class*="css"] {
     font-size: 18px;
 }
 
-.upload-box {
-    border: 2px dashed var(--secondary);
-    padding: 2rem;
-    border-radius: 14px;
-    background: rgba(47,128,237,0.05);
-}
-
 .stButton>button {
     background: linear-gradient(135deg, #2f80ed, #00b4d8);
     color: white;
@@ -98,14 +90,13 @@ html, body, [class*="css"] {
 .stButton>button:hover {
     background: linear-gradient(135deg, #2563eb, #0096c7);
 }
-
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="header">
     <h1>Contract Risk Intelligence Platform</h1>
-    <p>AI-assisted legal risk analysis for contracts, agreements, and business documents</p>
+    <p>Professional contract risk analysis for agreements and business documents</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -122,7 +113,8 @@ if uploaded_file:
     else:
         reader = PyPDF2.PdfReader(uploaded_file)
         for page in reader.pages:
-            contract_text += page.extract_text() + "\n"
+            if page.extract_text():
+                contract_text += page.extract_text() + "\n"
 
 def extract_clauses(text):
     parts = re.split(r"\n\d+\.|\n[A-Z ]{4,}:", text)
@@ -164,33 +156,39 @@ if st.button("Analyze Contract", use_container_width=True):
         col1, col2 = st.columns(2)
 
         with col1:
-            st.markdown("<div class='card'>", unsafe_allow_html=True)
-            st.markdown("<h3>Overall Risk Profile</h3>", unsafe_allow_html=True)
+            st.markdown("<div class='section'>", unsafe_allow_html=True)
+            st.subheader("Overall Risk Profile")
             st.markdown(f"<div class='{cls}'>Risk Level: {level}</div>", unsafe_allow_html=True)
-            st.markdown(
+            st.write(
                 "The document has been evaluated against common contractual risk indicators. "
                 "The overall rating reflects potential legal and financial exposure."
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
         with col2:
-            st.markdown("<div class='card'>", unsafe_allow_html=True)
-            st.markdown("<h3>Key Risk Indicators</h3>", unsafe_allow_html=True)
+            st.markdown("<div class='section'>", unsafe_allow_html=True)
+            st.subheader("Key Risk Indicators")
             if risks:
                 for r in risks:
-                    st.markdown(f"• {r}")
+                    st.write("•", r)
             else:
-                st.markdown("No major risk indicators identified.")
+                st.write("No major risk indicators identified.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.markdown("<h3>Clause Highlights</h3>", unsafe_allow_html=True)
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+
+        st.markdown("<div class='section'>", unsafe_allow_html=True)
+        st.subheader("Clause Highlights")
         for i, clause in enumerate(clauses[:5], 1):
-            st.markdown(f"**Clause {i}**: {clause[:420]}...")
+            st.markdown(f"**Clause {i}**")
+            st.write(clause[:420] + "...")
+            st.write("")
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.markdown("<h3>Recommended Actions</h3>", unsafe_allow_html=True)
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+
+        st.markdown("<div class='section'>", unsafe_allow_html=True)
+        st.subheader("Recommended Actions")
         st.markdown("""
 - Review termination clauses for mutual fairness  
 - Confirm ownership and usage rights of intellectual property  
@@ -205,7 +203,7 @@ if st.button("Analyze Contract", use_container_width=True):
         content = []
 
         content.append(Paragraph("Contract Risk Assessment Report", styles["Title"]))
-        content.append(Paragraph(f"Generated on {datetime.now()}", styles["Normal"]))
+        content.append(Paragraph(f"Generated on: {datetime.now()}", styles["Normal"]))
         content.append(Paragraph(f"Overall Risk Level: {level}", styles["Normal"]))
 
         for r in risks:
